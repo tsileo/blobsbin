@@ -28,7 +28,7 @@ local function showPaste(paste)
 end
 
 if req.method() == 'GET' then
-  if req.queryarg('key') ~= "" then
+  if req.queryarg('show') ~= "" then
     -- #####################
     -- Private paste display
     -- #####################
@@ -37,7 +37,7 @@ if req.method() == 'GET' then
       resp.error(401)
       do return end
     end
-    local kv = kvs.getjson(req.queryarg('key'), -1)
+    local kv = kvs.getjson(req.queryarg('show'), -1)
     local paste = kv.value
     paste.content = bs.get(paste.content_ref)
     showPaste(paste)
@@ -59,15 +59,16 @@ if req.method() == 'GET' then
     tpl.setctx{Pastes = pastes}
     resp.write(tpl.render(string.format([[<div style="max-width:960px;margin:20px auto;padding:0 20px;">
     <h1>Pastes</h1>
+    <p style="color:#aaa;">Semi-private links have a one hour validty.</p>
     <ul>
     {{ range .Pastes }}
-      <li><a href="?key={{ .key }}">{{ .value.filename }}</a> | <a href="%v?id={{ .value.id }}&bewit={{ .value.bewit }}">share</a></li>
+      <li><a href="?show={{ .key }}">{{ .value.filename }}</a> <a style="color:#aaa;text-decoration:none;" {{ if .value.public }}href="%v?id={{ .value.id }}">(public)</a>
+      {{ else }}href="%v?id={{ .value.id }}&bewit={{ .value.bewit }}">(semi-private)</a>{{ end }}</li>
     {{ end }}
     </ul>
     </div>]], url('/app/'..appID))))
     do return end
-  end
-  if req.queryarg('id') ~= "" and bewit.check() == "" then
+  elseif req.queryarg('id') ~= "" then
     -- ################
     -- Public paste get
     -- ################
@@ -77,16 +78,18 @@ if req.method() == 'GET' then
     local paste = kv.value
     paste.content = bs.get(paste.content_ref)
 
+    if not paste.public and bewit.check() ~= "" then
+      log.info(string.format('Unauthorized access from %v with error=%q', req.remoteaddr(), bewit.check()))
+      resp.error(401)
+      do return end
+    end
+
     -- Log the access
     log.info(string.format("Paste %s/%s has been accessed by %s", paste.filename, pastekey, req.remoteaddr()))
 
     -- Build the HTML response
     showPaste(paste)
     do return end
-  end
-  if bewit.check() ~= "" then
-    log.info(string.format('Unauthorized access from %v with error=%q', req.remoteaddr(), bewit.check()))
-    resp.error(401)
   end
 elseif req.method() == 'POST' then
   -- #######################
@@ -105,16 +108,22 @@ elseif req.method() == 'POST' then
 
     -- Create the paste object
     local pasteid = hexid()
-    local paste = {id = pasteid, filename = files.file.filename, content_ref = contentref}
+    local paste = {id = pasteid, filename = files.file.filename, content_ref = contentref, public = false}
+    if form.public == "1" then
+      paste.public = true
+    end
     local pastekey = string.format('paste:%s', pasteid)
     -- Save it in the kvstore
     kvs.putjson(pastekey, paste, -1)
 
     local url = url('/app/hello?id=' .. pasteid)
-    local token = bewit.new(url)
-    url = url .. '&bewit=' .. token
+    -- Only generate a single-auth link if the paste isn't public
+    if not paste.public then
+      local token = bewit.new(url)
+      url = url .. '&bewit=' .. token
+    end
 
-    log.info(string.format('Paste [filename=%q, id=%q] created', paste.filename, pasteid))
+    log.info(string.format('Paste [filename=%q, id=%q, public=%s] created', paste.filename, pasteid, paste.public))
 
     -- Returns a nice JSON response
     resp.jsonify{paste = paste, id = pasteid, url = url}

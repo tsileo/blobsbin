@@ -4,6 +4,12 @@ BlobsBin is a paste service for privately sharing snippets.
 
 This is a [BlobStash](https://github.com/tsileo/blobstash) app written in Lua.
 
+## Feature
+
+- Public pastes support
+- Semi-private sharing support with [Hawk bewit authentication](https://github.com/hueniverse/hawk#single-uri-authorization)
+- All your data stored in BlobStash
+
 ## Installation
 
 ```shell
@@ -33,3 +39,11 @@ $ curl -u :APIEKY -F "file=@/path/to/file" http://localhost:8050/app/blobsbin
 ```
 
 It will returns a JSON payload with the `url` key (the link will be valid for one hour).
+
+### Upload a public paste
+
+Just add a `public=1` field to the POST request:
+
+```shell
+$ http -f --auth :APIKEY POST http://localhost:8050/app/blobsbin public=1 file@/path/to/file
+```

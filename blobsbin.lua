@@ -20,6 +20,13 @@ local tplSnippet = [[<div style="max-width:960px;margin:20px auto;padding:0 20px
 <a href="https://github.com/tsileo/blobstash" style="text-decoration:none;color:#333;">BlobStash</a>.</p>
 </div>]]
 
+local function showPaste(paste)
+  tpl.addcss(hightlightCss)
+  tpl.settitle("BlobsBin: " .. paste.filename)
+  tpl.setctx{Paste = paste}
+  resp.write(tpl.render(tplSnippet))
+end
+
 if req.method() == 'GET' then
   if req.queryarg('key') ~= "" then
     -- #####################
@@ -33,10 +40,7 @@ if req.method() == 'GET' then
     local kv = kvs.getjson(req.queryarg('key'), -1)
     local paste = kv.value
     paste.content = bs.get(paste.content_ref)
-    tpl.addcss(hightlightCss)
-    tpl.settitle("Paste: " .. paste.filename)
-    tpl.setctx{Paste = paste}
-    resp.write(tpl.render(tplSnippet))
+    showPaste(paste)
     do return end
   elseif req.queryarg('id') == "" then
     -- ######################
@@ -51,7 +55,7 @@ if req.method() == 'GET' then
     for i = 1, #pastes do
       pastes[i].value.bewit = bewit.new(url(string.format('/app/%v?id=%v', appID, pastes[i].value.id)))
     end
-    tpl.settitle("Pastes")
+    tpl.settitle("BlobsBin: Pastes")
     tpl.setctx{Pastes = pastes}
     resp.write(tpl.render(string.format([[<div style="max-width:960px;margin:20px auto;padding:0 20px;">
     <h1>Pastes</h1>
@@ -77,10 +81,8 @@ if req.method() == 'GET' then
     log.info(string.format("Paste %s/%s has been accessed by %s", paste.filename, pastekey, req.remoteaddr()))
 
     -- Build the HTML response
-    tpl.settitle(string.format("Paste: %v", paste.filename))
-    tpl.addcss(hightlightCss)
-    tpl.setctx{Paste = paste}
-    resp.write(tpl.render(tplSnippet))
+    showPaste(paste)
+    do return end
   end
   if bewit.check() ~= "" then
     log.info(string.format('Unauthorized access from %v with error=%q', req.remoteaddr(), bewit.check()))

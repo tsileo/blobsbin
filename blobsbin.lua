@@ -114,6 +114,8 @@ elseif req.method() == 'POST' then
     local token = bewit.new(url)
     url = url .. '&bewit=' .. token
 
+    log.info(string.format('Paste [filename=%q, id=%q] created', paste.filename, pasteid))
+
     -- Returns a nice JSON response
     resp.jsonify{paste = paste, id = pasteid, url = url}
   end

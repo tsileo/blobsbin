@@ -16,7 +16,7 @@ local tplSnippet = [[<div style="max-width:960px;margin:20px auto;padding:0 20px
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.0.0/highlight.min.js"></script>
 <script>hljs.initHighlightingOnLoad();</script>
 <p style="color:#aaa;font-size:0.9em;margin-top:20px;">Powered by 
-<a href="https://github.com/tsileo/blobsbin" style="text-decoration:none;color:#333;">BlobBin</a> and 
+<a href="https://github.com/tsileo/blobsbin" style="text-decoration:none;color:#333;">BlobsBin</a> and 
 <a href="https://github.com/tsileo/blobstash" style="text-decoration:none;color:#333;">BlobStash</a>.</p>
 </div>]]
 
@@ -55,10 +55,10 @@ if req.method() == 'GET' then
     for i = 1, #pastes do
       pastes[i].value.bewit = bewit.new(url(string.format('/app/%v?id=%v', appID, pastes[i].value.id)))
     end
-    tpl.settitle("BlobsBin: Pastes")
+    tpl.settitle("BlobsBin")
     tpl.setctx{Pastes = pastes}
     resp.write(tpl.render(string.format([[<div style="max-width:960px;margin:20px auto;padding:0 20px;">
-    <h1>Pastes</h1>
+    <h1>BlobsBin</h1>
     <p style="color:#aaa;">Semi-private links have a one hour validty.</p>
     <ul>
     {{ range .Pastes }}
@@ -85,7 +85,8 @@ if req.method() == 'GET' then
     end
 
     -- Log the access
-    log.info(string.format("Paste %s/%s has been accessed by %s", paste.filename, pastekey, req.remoteaddr()))
+    log.info(string.format("Paste [filename=%s, id=%s, public=%s] has been accessed by %s",
+             paste.filename, paste.id, paste.public, req.remoteaddr()))
 
     -- Build the HTML response
     showPaste(paste)
@@ -116,7 +117,7 @@ elseif req.method() == 'POST' then
     -- Save it in the kvstore
     kvs.putjson(pastekey, paste, -1)
 
-    local url = url('/app/hello?id=' .. pasteid)
+    local url = url('/app/' .. appID .. '?id=' .. pasteid)
     -- Only generate a single-auth link if the paste isn't public
     if not paste.public then
       local token = bewit.new(url)

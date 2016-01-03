@@ -9,6 +9,7 @@ local bs = require('blobstore')
 local bewit = require('bewit')
 local tpl = require('template')
 
+local hightlightCss = "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.0.0/styles/default.min.css"
 local tplSnippet = [[<div style="max-width:960px;margin:20px auto;padding:0 20px;">
 <h1>{{ .Paste.filename }}</h1>
 <pre><code>{{ .Paste.content }}</pre></code>
@@ -32,8 +33,8 @@ if req.method() == 'GET' then
     local kv = kvs.getjson(req.queryarg('key'), -1)
     local paste = kv.value
     paste.content = bs.get(paste.content_ref)
-    tpl.addcss("https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.0.0/styles/default.min.css")
-    tpl.settitle("Paste")
+    tpl.addcss(hightlightCss)
+    tpl.settitle("Paste: " .. paste.filename)
     tpl.setctx{Paste = paste}
     resp.write(tpl.render(tplSnippet))
     do return end
@@ -48,18 +49,18 @@ if req.method() == 'GET' then
     end
     local pastes = kvs.keysjson("paste:", "paste:\\xff", 100)
     for i = 1, #pastes do
-      pastes[i].value.bewit = bewit.new(string.format('http://localhost:8050/app/hello?id=%s', pastes[i].value.id))
+      pastes[i].value.bewit = bewit.new(url(string.format('/app/%v?id=%v', appID, pastes[i].value.id)))
     end
     tpl.settitle("Pastes")
     tpl.setctx{Pastes = pastes}
-    resp.write(tpl.render([[<div style="max-width:960px;margin:20px auto;padding:0 20px;">
+    resp.write(tpl.render(string.format([[<div style="max-width:960px;margin:20px auto;padding:0 20px;">
     <h1>Pastes</h1>
     <ul>
     {{ range .Pastes }}
-      <li><a href="?key={{ .key }}">{{ .value.filename }}</a> | <a href="http://localhost:8050/app/hello?id={{ .value.id }}&bewit={{ .value.bewit }}">share</a></li>
+      <li><a href="?key={{ .key }}">{{ .value.filename }}</a> | <a href="%v?id={{ .value.id }}&bewit={{ .value.bewit }}">share</a></li>
     {{ end }}
     </ul>
-    </div>]]))
+    </div>]], url('/app/'..appID))))
     do return end
   end
   if req.queryarg('id') ~= "" and bewit.check() == "" then
@@ -77,7 +78,7 @@ if req.method() == 'GET' then
 
     -- Build the HTML response
     tpl.settitle(string.format("Paste: %v", paste.filename))
-    tpl.addcss("https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.0.0/styles/default.min.css")
+    tpl.addcss(hightlightCss)
     tpl.setctx{Paste = paste}
     resp.write(tpl.render(tplSnippet))
   end
@@ -87,7 +88,7 @@ if req.method() == 'GET' then
   end
 elseif req.method() == 'POST' then
   -- #######################
-  -- Handke the paste upload
+  -- Handle the paste upload
   -- #######################
   if not req.authorized() then
     resp.error(401)
@@ -107,7 +108,7 @@ elseif req.method() == 'POST' then
     -- Save it in the kvstore
     kvs.putjson(pastekey, paste, -1)
 
-    local url = string.format('http://localhost:8050/app/hello?id=%s', pasteid)
+    local url = url('/app/hello?id=' .. pasteid)
     local token = bewit.new(url)
     url = url .. '&bewit=' .. token
 
